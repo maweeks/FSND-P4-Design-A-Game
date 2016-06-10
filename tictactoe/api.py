@@ -13,7 +13,7 @@ from google.appengine.api import taskqueue
 
 from models import User, Game, Score
 from models import StringMessage, NewGameForm, GameForm, MakeMoveForm,\
-    ScoreForms
+    GameForms, ScoreForms, HighScoresForm, UserRatingForm, UserRatingForms
 from utils import get_by_urlsafe
 
 NEW_GAME_REQUEST = endpoints.ResourceContainer(NewGameForm)
@@ -21,6 +21,8 @@ GET_GAME_REQUEST = endpoints.ResourceContainer(
         urlsafe_game_key=messages.StringField(1),)
 MAKE_MOVE_REQUEST = endpoints.ResourceContainer(
     MakeMoveForm,
+    urlsafe_game_key=messages.StringField(1),)
+MAKE_CANCEL_REQUEST = endpoints.ResourceContainer(
     urlsafe_game_key=messages.StringField(1),)
 USER_REQUEST = endpoints.ResourceContainer(user_name=messages.StringField(1),
                                            email=messages.StringField(2))
@@ -103,6 +105,7 @@ class TictactoeApi(remote.Service):
         stateList = list(game.game_state)
         stateList[request.move] = "x"
         game.game_state = "".join(stateList)
+        game.history = game.history + str(request.move)
 
         # check state
         game.checkEndGame()
@@ -116,6 +119,7 @@ class TictactoeApi(remote.Service):
                         stateList = list(game.game_state)
                         stateList[x] = "o"
                         game.game_state = "".join(stateList)
+                        game.history = game.history + str(x)
                         moveMade = True
 
             # check state
@@ -123,12 +127,7 @@ class TictactoeApi(remote.Service):
 
         # check game over
         if game.game_over:
-            if game.points == 3:
-                return game.to_form('You win!')
-            elif game.points == 1:
-                return game.to_form('You draw!')
-            elif game.points == 0:
-                return game.to_form('You lose!')
+            return game.to_form('Game complete!')
         else:
             game.put()
             return game.to_form("Move successful.")
@@ -155,6 +154,20 @@ class TictactoeApi(remote.Service):
         scores = Score.query(Score.user == user.key)
         return ScoreForms(items=[score.to_form() for score in scores])
 
+    @endpoints.method(request_message=USER_REQUEST,
+                      response_message=GameForms,
+                      path='games/user/{user_name}',
+                      name='get_user_games',
+                      http_method='GET')
+    def get_user_games(self, request):
+        """Returns all of an individual User's games"""
+        user = User.query(User.name == request.user_name).get()
+        if not user:
+            raise endpoints.NotFoundException(
+                    'A User with that name does not exist!')
+        games = Game.query(Game.user == user.key)
+        return GameForms(items=[game.to_form("") for game in games])
+
     @endpoints.method(response_message=StringMessage,
                       path='games/average_attempts',
                       name='get_average_attempts_remaining',
@@ -162,6 +175,61 @@ class TictactoeApi(remote.Service):
     def get_average_attempts(self, request):
         """Get the cached average moves remaining"""
         return StringMessage(message=memcache.get(MEMCACHE_MOVES_REMAINING) or '')
+
+    @endpoints.method(request_message=MAKE_CANCEL_REQUEST,
+                      response_message=StringMessage,
+                      path='game/{urlsafe_game_key}/cancel',
+                      name='cancel_game',
+                      http_method='PUT')
+    def cancel_game(self, request):
+        """Makes a move. Returns a game state with message"""
+        game = get_by_urlsafe(request.urlsafe_game_key, Game)
+        # check game over
+        if game.game_over:
+            return StringMessage(message='Game already over.')
+        else:
+            game.key.delete()
+            return StringMessage(message='Game deleted.')
+
+    @endpoints.method(request_message=HighScoresForm,
+                      response_message=ScoreForms,
+                      path='high_scores',
+                      name='get_high_scores',
+                      http_method='PUT')
+    def get_high_scores(self, request):
+        """Returns a list of the highest scoring games."""
+        scores = Score.query().order(-Score.points).fetch(limit=request.number_of_results)
+        return ScoreForms(items=[score.to_form() for score in scores])
+
+    @endpoints.method(response_message=UserRatingForms,
+                      path='user_rankings',
+                      name='get_user_rankings',
+                      http_method='PUT')
+    def get_user_rankings(self, request):
+        """Returns a list of the highest scoring games."""
+        users = User.query().fetch()
+        # return UserRatingForms(items=[user.getUserRating() for user in users])
+        return UserRatingForms(items=[user.getUserRating(Score.query(Score.user == user.key)) for user in users])
+
+    @endpoints.method(request_message=GET_GAME_REQUEST,
+                      response_message=StringMessage,
+                      path='game/{urlsafe_game_key}/history',
+                      name='get_game_history',
+                      http_method='PUT')
+    def get_game_history(self, request):
+        """Makes a move. Returns a game state with message"""
+        game = get_by_urlsafe(request.urlsafe_game_key, Game)
+        # check game over
+        userMove = True
+        gameHistory = ""
+        for character in list(game.history):
+            if userMove:
+                gameHistory += "User played in location " + str(character) + ".\n"
+            else:
+                gameHistory += "AI played in location " + str(character) + ".\n"
+            userMove = not userMove
+        print gameHistory
+        return StringMessage(message=gameHistory)
 
     @staticmethod
     def _cache_average_attempts():

@@ -11,14 +11,36 @@ from google.appengine.ext import ndb
 class User(ndb.Model):
     """User profile"""
     name = ndb.StringProperty(required=True)
-    email =ndb.StringProperty()
+    email = ndb.StringProperty()
+
+    @classmethod
+    # def getUserRating(self):
+    def getUserRating(self, scores):
+        count = 0
+        points = 0
+        wins = 0
+        user_name = ""
+        for score in scores:
+            if user_name == "":
+                user_name = score.user.get().name
+            count += 1
+            points += score.points
+            if score.points >= 3:
+                wins += 1
+
+        form = UserRatingForm()
+        # average points per game * win percentage
+        userRating = (1.0 * points * wins / count / count)
+        form.user_name = user_name
+        form.rating = userRating
+        return form
 
 
 class Game(ndb.Model):
     """Game object"""
     game_state = ndb.StringProperty(required=True, default=".........")
     game_over = ndb.BooleanProperty(required=True, default=False)
-    points =  ndb.IntegerProperty(required=True, default=0)
+    history = ndb.StringProperty(default="")
     user = ndb.KeyProperty(required=True, kind='User')
 
     @classmethod
@@ -26,8 +48,7 @@ class Game(ndb.Model):
         """Creates and returns a new game"""
         game = Game(user=user,
                     game_state=".........",
-                    game_over=False,
-                    points=0)
+                    game_over=False)
         game.put()
         return game
 
@@ -38,7 +59,7 @@ class Game(ndb.Model):
         form.user_name = self.user.get().name
         form.game_state = self.game_state
         form.game_over = self.game_over
-        form.points = self.points
+        form.history = self.history
         form.message = message
         return form
 
@@ -49,35 +70,33 @@ class Game(ndb.Model):
             draw = True
         # check for wins
         gs = self.game_state
+        remaining = self.game_state.count(".")
         if (((gs[0] == gs[1]) and (gs[0] == gs[2])) or
             ((gs[0] == gs[3]) and (gs[0] == gs[6])) or
             ((gs[0] == gs[4]) and (gs[0] == gs[8]))):
             if gs[0] == "x":
-                self.end_game(3)
+                self.end_game(3 + remaining)
             elif gs[0] == "o":
                 self.end_game(0)
         elif (((gs[4] == gs[3]) and (gs[4] == gs[5])) or
             ((gs[4] == gs[2]) and (gs[4] == gs[6])) or
             ((gs[4] == gs[1]) and (gs[4] == gs[7]))):
             if gs[4] == "x":
-                self.end_game(3)
+                self.end_game(3 + remaining)
             elif gs[4] == "o":
                 self.end_game(0)
         elif (((gs[8] == gs[2]) and (gs[8] == gs[5])) or
             ((gs[8] == gs[6]) and (gs[8] == gs[7]))):
             if gs[8] == "x":
-                self.end_game(3)
+                self.end_game(3 + remaining)
             elif gs[8] == "o":
                 self.end_game(0)
         elif draw:
             self.end_game(1)
 
-
-
     def end_game(self, points=0):
         """Ends the game."""
         self.game_over = True
-        self.points = points
         self.put()
         # Add the game to the score 'board'
         score = Score(user=self.user, date=date.today(), points=points)
@@ -102,7 +121,12 @@ class GameForm(messages.Message):
     game_over = messages.BooleanField(3, required=True)
     message = messages.StringField(4, required=True)
     user_name = messages.StringField(5, required=True)
-    points = messages.IntegerField(6, required=True)
+    history = messages.StringField(6, required=True)
+
+
+class GameForms(messages.Message):
+    """Return multiple ScoreForms"""
+    items = messages.MessageField(GameForm, 1, repeated=True)
 
 
 class NewGameForm(messages.Message):
@@ -123,9 +147,25 @@ class ScoreForm(messages.Message):
     points = messages.IntegerField(3, required=True)
 
 
+class HighScoresForm(messages.Message):
+    """ScoreForm for outbound Score information"""
+    number_of_results = messages.IntegerField(1, required=False, default=10)
+
+
 class ScoreForms(messages.Message):
     """Return multiple ScoreForms"""
     items = messages.MessageField(ScoreForm, 1, repeated=True)
+
+
+class UserRatingForm(messages.Message):
+    """UserRatingForm for outbound Rating information"""
+    user_name = messages.StringField(1, required=True)
+    rating = messages.FloatField(2, required=True)
+
+
+class UserRatingForms(messages.Message):
+    """Return multiple UserRatingForms"""
+    items = messages.MessageField(UserRatingForm, 1, repeated=True)
 
 
 class StringMessage(messages.Message):

@@ -8,7 +8,7 @@ import webapp2
 from google.appengine.api import mail, app_identity
 from api import TictactoeApi
 
-from models import User
+from models import Game, User
 
 
 class SendReminderEmail(webapp2.RequestHandler):
@@ -18,14 +18,16 @@ class SendReminderEmail(webapp2.RequestHandler):
         app_id = app_identity.get_application_id()
         users = User.query(User.email != None)
         for user in users:
-            subject = 'You!'
-            body = 'Hello {}, try out Tictactoe!'.format(user.name)
-            # This will send test emails, the arguments to send_mail are:
-            # from, to, subject, body
-            mail.send_mail('noreply@{}.appspotmail.com'.format(app_id),
-                           user.email,
-                           subject,
-                           body)
+            games = Game.query(Game.user == user.key, Game.game_over == False)
+            if games.count() > 0:
+                subject = 'You!'
+                body = 'Hello {}, try out Tictactoe!'.format(user.name)
+                # This will send test emails, the arguments to send_mail are:
+                # from, to, subject, body
+                mail.send_mail('noreply@{}.appspotmail.com'.format(app_id),
+                               user.email,
+                               subject,
+                               body)
 
 
 class UpdateAverageMovesRemaining(webapp2.RequestHandler):
