@@ -16,22 +16,18 @@ class User(ndb.Model):
 
 class Game(ndb.Model):
     """Game object"""
-    target = ndb.IntegerProperty(required=True)
-    attempts_allowed = ndb.IntegerProperty(required=True)
-    attempts_remaining = ndb.IntegerProperty(required=True, default=5)
+    game_state = ndb.StringProperty(required=True, default=".........")
     game_over = ndb.BooleanProperty(required=True, default=False)
+    points =  ndb.IntegerProperty(required=True, default=0)
     user = ndb.KeyProperty(required=True, kind='User')
 
     @classmethod
-    def new_game(cls, user, min, max, attempts):
+    def new_game(cls, user):
         """Creates and returns a new game"""
-        if max < min:
-            raise ValueError('Maximum must be greater than minimum')
         game = Game(user=user,
-                    target=random.choice(range(1, max + 1)),
-                    attempts_allowed=attempts,
-                    attempts_remaining=attempts,
-                    game_over=False)
+                    game_state=".........",
+                    game_over=False,
+                    points=0)
         game.put()
         return game
 
@@ -40,19 +36,51 @@ class Game(ndb.Model):
         form = GameForm()
         form.urlsafe_key = self.key.urlsafe()
         form.user_name = self.user.get().name
-        form.attempts_remaining = self.attempts_remaining
+        form.game_state = self.game_state
         form.game_over = self.game_over
+        form.points = self.points
         form.message = message
         return form
 
-    def end_game(self, won=False):
-        """Ends the game - if won is True, the player won. - if won is False,
-        the player lost."""
+    def checkEndGame(self):
+        draw = False
+        # check for draw
+        if "." not in self.game_state:
+            draw = True
+        # check for wins
+        gs = self.game_state
+        if (((gs[0] == gs[1]) and (gs[0] == gs[2])) or
+            ((gs[0] == gs[3]) and (gs[0] == gs[6])) or
+            ((gs[0] == gs[4]) and (gs[0] == gs[8]))):
+            if gs[0] == "x":
+                self.end_game(3)
+            elif gs[0] == "o":
+                self.end_game(0)
+        elif (((gs[4] == gs[3]) and (gs[4] == gs[5])) or
+            ((gs[4] == gs[2]) and (gs[4] == gs[6])) or
+            ((gs[4] == gs[1]) and (gs[4] == gs[7]))):
+            if gs[4] == "x":
+                self.end_game(3)
+            elif gs[4] == "o":
+                self.end_game(0)
+        elif (((gs[8] == gs[2]) and (gs[8] == gs[5])) or
+            ((gs[8] == gs[6]) and (gs[8] == gs[7]))):
+            if gs[8] == "x":
+                self.end_game(3)
+            elif gs[8] == "o":
+                self.end_game(0)
+        elif draw:
+            self.end_game(1)
+
+
+
+    def end_game(self, points=0):
+        """Ends the game."""
         self.game_over = True
+        self.points = points
         self.put()
         # Add the game to the score 'board'
-        score = Score(user=self.user, date=date.today(), won=won,
-                      guesses=self.attempts_allowed - self.attempts_remaining)
+        score = Score(user=self.user, date=date.today(), points=points)
         score.put()
 
 
@@ -60,42 +88,39 @@ class Score(ndb.Model):
     """Score object"""
     user = ndb.KeyProperty(required=True, kind='User')
     date = ndb.DateProperty(required=True)
-    won = ndb.BooleanProperty(required=True)
-    guesses = ndb.IntegerProperty(required=True)
+    points = ndb.IntegerProperty(required=True)
 
     def to_form(self):
-        return ScoreForm(user_name=self.user.get().name, won=self.won,
-                         date=str(self.date), guesses=self.guesses)
+        return ScoreForm(user_name=self.user.get().name, points=self.points,
+            date=str(self.date))
 
 
 class GameForm(messages.Message):
     """GameForm for outbound game state information"""
     urlsafe_key = messages.StringField(1, required=True)
-    attempts_remaining = messages.IntegerField(2, required=True)
+    game_state = messages.StringField(2, required=True)
     game_over = messages.BooleanField(3, required=True)
     message = messages.StringField(4, required=True)
     user_name = messages.StringField(5, required=True)
+    points = messages.IntegerField(6, required=True)
 
 
 class NewGameForm(messages.Message):
     """Used to create a new game"""
     user_name = messages.StringField(1, required=True)
-    min = messages.IntegerField(2, default=1)
-    max = messages.IntegerField(3, default=10)
-    attempts = messages.IntegerField(4, default=5)
+    game_state = messages.StringField(2, default=".........")
 
 
 class MakeMoveForm(messages.Message):
     """Used to make a move in an existing game"""
-    guess = messages.IntegerField(1, required=True)
+    move = messages.IntegerField(1, required=True)
 
 
 class ScoreForm(messages.Message):
     """ScoreForm for outbound Score information"""
     user_name = messages.StringField(1, required=True)
     date = messages.StringField(2, required=True)
-    won = messages.BooleanField(3, required=True)
-    guesses = messages.IntegerField(4, required=True)
+    points = messages.IntegerField(3, required=True)
 
 
 class ScoreForms(messages.Message):
