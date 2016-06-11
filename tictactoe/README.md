@@ -23,6 +23,11 @@ Many different Tic tac toe games can be played by many different Users at any
 given time. Each game can be retrieved or played by using the path parameter
 `urlsafe_game_key`.
 
+Games are scored as (3 + x) points for a win, 1 point for a draw and 0 points
+for a loss, where x is the number of moves left when the game ends.
+
+User rating is their win percentage multiplied by their average score.
+
 ##Files Included:
  - api.py: Contains endpoints and game playing logic.
  - app.yaml: App configuration.

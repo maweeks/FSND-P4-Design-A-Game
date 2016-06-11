@@ -1,0 +1,18 @@
+What additional properties did you add to your models and why?
+--------------------------------------------------------------
+I did not modify the User model, the initial version of the model contained all of the variables that were required for my desired usage so there was no reason to change the variables. 'getUserRating' function was added to allow the rating to be calculated easily.
+
+The Game model had many changes made to it as a different game was being implemented. The game model now has 4 varaibles and 4 methods. The game_state
+stores the state of the board in 9 characters, one for each slot on the board. '.' signifies and empty space, 'x' and 'o' signifiy a take space on the board.
+The history variable stores the order that the the spaces on the board were taken, for example "012345678" would be where the moves went left to right, top to bottom. The new method checkEndGame checks if the game is finished by checking each line where the game can be finished, or if there has been a draw.
+Adding game_state and history in this way allows for very cheap simple, cheap storage of the data.
+
+
+What were some of the trade-offs or struggles you faced when implementing the new game logic?
+-----------------------------------------------------------------------------------------------
+There were a few trade-offs made to simplify the programming of the application, including:
+* The user will always play the first move.
+* The user will always play as 'x'
+* The AI is extremely basic (playing in the first available spot on the board)
+
+Each of the above limitations reduce the flexibility of the API that I have created, but they simplified the programming, whilst still providing a fully functional tic tac toe game, even if it is very easy to win.
