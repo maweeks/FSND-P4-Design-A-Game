@@ -1,6 +1,6 @@
 """models.py - This file contains the class definitions for the Datastore
-entities used by the Game. Because these classes are also regular Python
-classes they can include methods (such as 'to_form' and 'new_game')."""
+entities used by the Tictactoe game. Because these classes are also regular
+Python classes they can include methods (such as 'to_form' and 'new_game')."""
 
 import random
 from datetime import date
@@ -14,12 +14,12 @@ class User(ndb.Model):
     email = ndb.StringProperty()
 
     @classmethod
-    # def getUserRating(self):
     def getUserRating(self, scores):
         count = 0
         points = 0
         wins = 0
         user_name = ""
+        userRating = 0
         for score in scores:
             if user_name == "":
                 user_name = score.user.get().name
@@ -30,7 +30,8 @@ class User(ndb.Model):
 
         form = UserRatingForm()
         # average points per game * win percentage
-        userRating = (1.0 * points * wins / count / count)
+        if count > 0:
+            userRating = (1.0 * points * wins / count / count)
         form.user_name = user_name
         form.rating = userRating
         return form

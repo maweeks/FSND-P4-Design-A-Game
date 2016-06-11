@@ -1,19 +1,27 @@
 # -*- coding: utf-8 -*-`
-"""api.py - Create and configure the Game API exposing the resources.
+"""api.py - Create and configure the Tictactoe game API exposing the resources.
 This can also contain game logic. For more complex games it would be wise to
 move game logic to another file. Ideally the API will be simple, concerned
 primarily with communication to/from the API's users."""
 
 
-import logging
 import endpoints
 from protorpc import remote, messages
 from google.appengine.api import memcache
 from google.appengine.api import taskqueue
 
 from models import User, Game, Score
-from models import StringMessage, NewGameForm, GameForm, MakeMoveForm,\
-    GameForms, ScoreForms, HighScoresForm, UserRatingForm, UserRatingForms
+from models import (
+    StringMessage,
+    NewGameForm,
+    GameForm,
+    MakeMoveForm,
+    GameForms,
+    ScoreForms,
+    HighScoresForm,
+    UserRatingForm,
+    UserRatingForms
+)
 from utils import get_by_urlsafe
 
 NEW_GAME_REQUEST = endpoints.ResourceContainer(NewGameForm)
@@ -21,8 +29,6 @@ GET_GAME_REQUEST = endpoints.ResourceContainer(
         urlsafe_game_key=messages.StringField(1),)
 MAKE_MOVE_REQUEST = endpoints.ResourceContainer(
     MakeMoveForm,
-    urlsafe_game_key=messages.StringField(1),)
-MAKE_CANCEL_REQUEST = endpoints.ResourceContainer(
     urlsafe_game_key=messages.StringField(1),)
 USER_REQUEST = endpoints.ResourceContainer(user_name=messages.StringField(1),
                                            email=messages.StringField(2))
@@ -95,11 +101,11 @@ class TictactoeApi(remote.Service):
         game = get_by_urlsafe(request.urlsafe_game_key, Game)
         # check game over
         if game.game_over:
-            return game.to_form('Game already over!')
+            raise endpoints.BadRequestException('Illegal action: Game is already over.')
 
         # check valid move
         if game.game_state[request.move:(request.move+1)] != ".":
-            return game.to_form('Invalid move!')
+            raise endpoints.BadRequestException('Illegal action: Invalid move.')
 
         # make move
         stateList = list(game.game_state)
@@ -165,7 +171,7 @@ class TictactoeApi(remote.Service):
         if not user:
             raise endpoints.NotFoundException(
                     'A User with that name does not exist!')
-        games = Game.query(Game.user == user.key)
+        games = Game.query(Game.user == user.key, Game.game_over == False)
         return GameForms(items=[game.to_form("") for game in games])
 
     @endpoints.method(response_message=StringMessage,
@@ -176,11 +182,11 @@ class TictactoeApi(remote.Service):
         """Get the cached average moves remaining"""
         return StringMessage(message=memcache.get(MEMCACHE_MOVES_REMAINING) or '')
 
-    @endpoints.method(request_message=MAKE_CANCEL_REQUEST,
+    @endpoints.method(request_message=GET_GAME_REQUEST,
                       response_message=StringMessage,
                       path='game/{urlsafe_game_key}/cancel',
                       name='cancel_game',
-                      http_method='PUT')
+                      http_method='DELETE')
     def cancel_game(self, request):
         """Makes a move. Returns a game state with message"""
         game = get_by_urlsafe(request.urlsafe_game_key, Game)
@@ -195,7 +201,7 @@ class TictactoeApi(remote.Service):
                       response_message=ScoreForms,
                       path='high_scores',
                       name='get_high_scores',
-                      http_method='PUT')
+                      http_method='GET')
     def get_high_scores(self, request):
         """Returns a list of the highest scoring games."""
         scores = Score.query().order(-Score.points).fetch(limit=request.number_of_results)
@@ -204,7 +210,7 @@ class TictactoeApi(remote.Service):
     @endpoints.method(response_message=UserRatingForms,
                       path='user_rankings',
                       name='get_user_rankings',
-                      http_method='PUT')
+                      http_method='GET')
     def get_user_rankings(self, request):
         """Returns a list of the highest scoring games."""
         users = User.query().fetch()
@@ -215,7 +221,7 @@ class TictactoeApi(remote.Service):
                       response_message=StringMessage,
                       path='game/{urlsafe_game_key}/history',
                       name='get_game_history',
-                      http_method='PUT')
+                      http_method='GET')
     def get_game_history(self, request):
         """Makes a move. Returns a game state with message"""
         game = get_by_urlsafe(request.urlsafe_game_key, Game)

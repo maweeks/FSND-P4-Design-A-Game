@@ -89,7 +89,7 @@ User rating is their win percentage multiplied by their average score.
     - Method: GET
     - Parameters: user_name
     - Returns: GameForms.
-    - Description: Returns all Games recorded by the provided player (unordered).
+    - Description: Returns all active Games recorded by the provided player (unordered).
     Will raise a NotFoundException if the User does not exist.
 
  - **get_average_attempts**
@@ -101,7 +101,7 @@ User rating is their win percentage multiplied by their average score.
 
  - **cancel_game**
     - Path: 'games/{urlsafe_game_key}/cancel'
-    - Method: PUT
+    - Method: DELETE
     - Parameters: urlsafe_game_key
     - Returns: Message confirming action taken.
     - Description: Deletes the specified game if it is active.
@@ -109,7 +109,7 @@ User rating is their win percentage multiplied by their average score.
 
  - **get_high_scores**
     - Path: 'high_scores'
-    - Method: PUT
+    - Method: GET
     - Parameters: number_of_results (optional)
     - Returns: ScoreForms.
     - Description: Returns a list of high scores. Maximum size of results
@@ -117,14 +117,14 @@ User rating is their win percentage multiplied by their average score.
 
  - **get_user_rankings**
     - Path: 'user_rankings'
-    - Method: PUT
+    - Method: GET
     - Parameters: None
     - Returns: UserRatingForms.
     - Description: Returns user ratings of all users.
 
  - **get_game_history**
     - Path: 'game/{urlsafe_game_key}/history'
-    - Method: PUT
+    - Method: GET
     - Parameters: urlsafe_game_key
     - Returns: Message.
     - Description: Returns a message containing the game history.
