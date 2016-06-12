@@ -19,7 +19,7 @@ class User(ndb.Model):
         points = 0
         wins = 0
         user_name = ""
-        userRating = 0
+        userRating = 0.0
         for score in scores:
             if user_name == "":
                 user_name = score.user.get().name
@@ -65,34 +65,25 @@ class Game(ndb.Model):
         return form
 
     def checkEndGame(self):
-        draw = False
-        # check for draw
-        if "." not in self.game_state:
-            draw = True
+        possible_wins = [[0, 1, 2], # top row
+                        [3, 4, 5], # middle row
+                        [6, 7, 8], # bottom row
+                        [0, 3, 6], # left column
+                        [1, 4, 7], # middle column
+                        [2, 5, 8], # right column
+                        [0, 4, 8], # top left to bottom right
+                        [2, 4, 6]] # top right to bottom left
         # check for wins
         gs = self.game_state
         remaining = self.game_state.count(".")
-        if (((gs[0] == gs[1]) and (gs[0] == gs[2])) or
-            ((gs[0] == gs[3]) and (gs[0] == gs[6])) or
-            ((gs[0] == gs[4]) and (gs[0] == gs[8]))):
-            if gs[0] == "x":
-                self.end_game(3 + remaining)
-            elif gs[0] == "o":
-                self.end_game(0)
-        elif (((gs[4] == gs[3]) and (gs[4] == gs[5])) or
-            ((gs[4] == gs[2]) and (gs[4] == gs[6])) or
-            ((gs[4] == gs[1]) and (gs[4] == gs[7]))):
-            if gs[4] == "x":
-                self.end_game(3 + remaining)
-            elif gs[4] == "o":
-                self.end_game(0)
-        elif (((gs[8] == gs[2]) and (gs[8] == gs[5])) or
-            ((gs[8] == gs[6]) and (gs[8] == gs[7]))):
-            if gs[8] == "x":
-                self.end_game(3 + remaining)
-            elif gs[8] == "o":
-                self.end_game(0)
-        elif draw:
+        for p_win in possible_wins:
+            if ((gs[p_win[0]] == gs[p_win[1]]) and (gs[p_win[0]] == gs[p_win[2]])):
+                if gs[p_win[0]] == "x":
+                    self.end_game(3 + remaining)
+                elif gs[p_win[0]] == "o":
+                    self.end_game(0)
+        # check for draw
+        if (("." not in self.game_state) and (not self.game_over)):
             self.end_game(1)
 
     def end_game(self, points=0):
